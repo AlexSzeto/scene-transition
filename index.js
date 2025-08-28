@@ -22,36 +22,17 @@ function buildAssistantMessage({ text }) {
 
 async function insertAssistantMessage(text) {
   try {
-    console.log('[Scene Transition] insertAssistantMessage called with text:', text);
-    
     const ctx = getContext();
-    console.log('[Scene Transition] Got context:', !!ctx);
-    
     const { chat, eventSource, eventTypes } = ctx;
-    console.log('[Scene Transition] Context properties:', { 
-      hasChat: !!chat, 
-      hasEventSource: !!eventSource, 
-      hasEventTypes: !!eventTypes 
-    });
 
     const msg = buildAssistantMessage({ text });
-    console.log('[Scene Transition] Built message:', msg);
-    
     chat.push(msg);
     const msgId = chat.length - 1;
-    console.log('[Scene Transition] Message added to chat at index:', msgId);
 
     await eventSource.emit(eventTypes.MESSAGE_RECEIVED, msgId);
-    console.log('[Scene Transition] MESSAGE_RECEIVED event emitted');
-    
     ctx.addOneMessage(msg);
-    console.log('[Scene Transition] addOneMessage called');
-    
     await eventSource.emit(eventTypes.CHARACTER_MESSAGE_RENDERED, msgId);
-    console.log('[Scene Transition] CHARACTER_MESSAGE_RENDERED event emitted');
-    
     await ctx.saveChat();
-    console.log('[Scene Transition] Chat saved');
   } catch (error) {
     console.error('[Scene Transition] Error inserting message:', error);
     throw error;
@@ -60,16 +41,12 @@ async function insertAssistantMessage(text) {
 
 async function generateSceneLine({ instruction, style, maxTokens }) {
   try {
-    console.log('[Scene Transition] generateSceneLine called with:', { instruction, style, maxTokens });
-    
     const ctx = getContext();
     const { generateQuietPrompt, substituteParams } = ctx;
 
     if (!generateQuietPrompt) {
       console.error('[Scene Transition] generateQuietPrompt not available');
-      // Fallback to test message if LLM not available
       const testMessage = `[DEBUG] Scene transition test - ${instruction || 'no instruction'} ${style ? `(style: ${style})` : ''}`;
-      console.log('[Scene Transition] Using fallback test message:', testMessage);
       return testMessage;
     }
 
@@ -81,8 +58,6 @@ ${instruction ? "Scene notes: " + instruction : ""}
 Return only the character's spoken or internal line (no extra narrative).`
     );
 
-    console.log('[Scene Transition] Generated prompt:', quietPrompt);
-
     const result = await generateQuietPrompt({
       quietPrompt,
       quietToLoud: true,
@@ -90,13 +65,10 @@ Return only the character's spoken or internal line (no extra narrative).`
     });
 
     const finalResult = (typeof result === 'string' ? result.trim() : String(result ?? '').trim());
-    console.log('[Scene Transition] LLM result:', finalResult);
     return finalResult;
   } catch (error) {
     console.error('[Scene Transition] Error generating scene line:', error);
-    // Fallback to test message on error
     const testMessage = `[DEBUG] Scene transition test - ${instruction || 'no instruction'} ${style ? `(style: ${style})` : ''}`;
-    console.log('[Scene Transition] Using fallback due to error:', testMessage);
     return testMessage;
   }
 }
@@ -110,18 +82,11 @@ function registerSlashCommand() {
         returns: "Insert the next in-character line for a scene transition (OOC prompt hidden)",
         callback: async (named, unnamed) => {
           try {
-            console.log('[Scene Transition] Slash command triggered!');
-            console.log('[Scene Transition] Named args:', named);
-            console.log('[Scene Transition] Unnamed args:', unnamed);
-            
-            // Use default instruction if none provided
             const instruction = typeof unnamed === 'string' && unnamed.trim() 
               ? unnamed 
               : "Allow the character to transition to a new scene that makes sense.";
             const style = named?.style || undefined;
-            const max = named?.max || "120"; // Use default value
-
-            console.log('[Scene Transition] Processed args:', { instruction, style, max });
+            const max = named?.max || "120";
 
             const line = await generateSceneLine({
               instruction,
@@ -129,14 +94,10 @@ function registerSlashCommand() {
               maxTokens: max
             });
 
-            console.log('[Scene Transition] Generated line:', line);
-
             if (line) {
               await insertAssistantMessage(line);
-              console.log('[Scene Transition] Message inserted successfully');
               return "Scene line inserted.";
             }
-            console.log('[Scene Transition] No line generated');
             return "No output generated.";
           } catch (error) {
             console.error('[Scene Transition] Command execution error:', error);
@@ -178,7 +139,6 @@ function registerSlashCommand() {
 }
 
 function onReady() {
-  console.log('[Scene Transition] Extension initializing...');
   registerSlashCommand();
 }
 
@@ -187,10 +147,8 @@ function onReady() {
   const ctx = getContext();
   if (ctx && ctx.eventSource && ctx.eventTypes) {
     ctx.eventSource.on(ctx.eventTypes.APP_READY, onReady);
-    console.log('[Scene Transition] Extension loaded, waiting for APP_READY event');
   } else {
     // Fallback: try to register immediately if context is available
-    console.log('[Scene Transition] Context available, registering immediately');
     onReady();
   }
 })();
