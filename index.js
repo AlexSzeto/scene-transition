@@ -9,6 +9,34 @@ import {
 import { SlashCommandParser } from "../../slash-commands/SlashCommandParser.js";
 import { getContext } from "../../st-context.js";
 
+// Extension settings
+const EXTENSION_NAME = 'Scene Transition';
+const EXTENSION_SETTINGS_KEY = 'scene-transition-settings';
+
+// Default settings
+const DEFAULT_SETTINGS = {
+  sceneChangeInstructions: `Write a scene transition, using the perspective of {{char}}. If the existing conversation indicates that the story hand reached the end of an event, describe the beginning of a new situation where {{char}} and {{user}} would interact again. Otherwise, transition {{char}} and {{user}} to a new location that would make sense. Describe the sight and sound of the new environment briefly, then have {{char}} start the interaction with {{user}} in this new setting. Do not write dialog for {{user}}. If the location change warrants a new outfit and there's logically a gap in the timeline where {{char}} could have changed, feel free to mention the outfit change briefly.`
+};
+
+function getSettings() {
+  const ctx = getContext();
+  return ctx.extensionSettings[EXTENSION_SETTINGS_KEY] || {};
+}
+
+function saveSettings(settings) {
+  const ctx = getContext();
+  ctx.extensionSettings[EXTENSION_SETTINGS_KEY] = settings;
+  ctx.saveSettingsDebounced();
+}
+
+function initializeSettings() {
+  const ctx = getContext();
+  if (!ctx.extensionSettings[EXTENSION_SETTINGS_KEY]) {
+    ctx.extensionSettings[EXTENSION_SETTINGS_KEY] = { ...DEFAULT_SETTINGS };
+    ctx.saveSettingsDebounced();
+  }
+}
+
 function buildAssistantMessage({ text }) {
   const ctx = getContext();
   const charName = ctx.characters?.[ctx.characterId]?.name;
@@ -50,9 +78,13 @@ async function generateSceneLine({ instruction, style, maxTokens }) {
       return testMessage;
     }
 
+    // Get settings for configurable instructions
+    const settings = getSettings();
+    const sceneChangeInstructions = settings.sceneChangeInstructions || DEFAULT_SETTINGS.sceneChangeInstructions;
+    
     const quietPrompt = substituteParams(
       `[OOC Scene Direction]
-Write a scene transition, using the perspective of {{char}}. If the existing conversation indicates that the story hand reached the end of an event, describe the beginning of a new situation where {{char}} and {{user}} would interact again. Otherwise, transition {{char}} and {{user}} to a new location that would make sense. Describe the sight and sound of the new environment briefly, then have {{char}} start the interaction with {{user}} in this new setting. Do not write dialog for {{user}}. If the location change warrants a new outfit and there's logically a gap in the timeline where {{char}} could have changed, feel free to mention the outfit change briefly.
+${sceneChangeInstructions}
 ${style ? "Style hint: " + style : ""}
 ${instruction ? "Scene notes: " + instruction : ""}
 Return only the character's spoken or internal line (no extra narrative).`
@@ -176,8 +208,122 @@ function addExtensionMenuButton() {
   });
 }
 
+function createSettingsUI() {
+  const settingsContainer = document.getElementById('extensions_settings2');
+  if (!settingsContainer) {
+    console.error('[Scene Transition] Settings container not found');
+    return;
+  }
+
+  // Check if settings UI already exists
+  if (document.getElementById(`${EXTENSION_SETTINGS_KEY}-container`)) {
+    return;
+  }
+
+  // Create settings drawer
+  const inlineDrawer = document.createElement('div');
+  inlineDrawer.id = `${EXTENSION_SETTINGS_KEY}-drawer`;
+  inlineDrawer.classList.add('inline-drawer');
+
+  // Create drawer header
+  const drawerHeader = document.createElement('div');
+  drawerHeader.classList.add('inline-drawer-toggle', 'inline-drawer-header');
+  
+  const extensionNameElement = document.createElement('b');
+  extensionNameElement.textContent = EXTENSION_NAME;
+  
+  const drawerIcon = document.createElement('div');
+  drawerIcon.classList.add('inline-drawer-icon', 'fa-solid', 'fa-circle-chevron-down', 'down');
+
+  drawerHeader.appendChild(extensionNameElement);
+  drawerHeader.appendChild(drawerIcon);
+
+  // Create settings content
+  const drawerContent = document.createElement('div');
+  drawerContent.classList.add('inline-drawer-content');
+
+  // Add settings controls
+  createInstructionsTextarea(drawerContent);
+
+  // Assemble drawer
+  inlineDrawer.appendChild(drawerHeader);
+  inlineDrawer.appendChild(drawerContent);
+  settingsContainer.appendChild(inlineDrawer);
+
+  // Add toggle functionality
+  drawerHeader.addEventListener('click', function() {
+    this.classList.toggle('open');
+    drawerIcon.classList.toggle('down');
+    drawerIcon.classList.toggle('up');
+    drawerContent.classList.toggle('open');
+  });
+}
+
+function createInstructionsTextarea(container) {
+  const settings = getSettings();
+
+  // Create label
+  const label = document.createElement('label');
+  label.textContent = 'Scene Transition Instructions';
+  label.style.display = 'block';
+  label.style.marginBottom = '8px';
+  label.style.fontWeight = 'bold';
+
+  // Create description
+  const description = document.createElement('small');
+  description.textContent = 'Customize the instructions given to the AI for generating scene transitions. Use {{char}} and {{user}} as placeholders.';
+  description.style.display = 'block';
+  description.style.marginBottom = '8px';
+  description.style.opacity = '0.7';
+
+  // Create textarea
+  const textarea = document.createElement('textarea');
+  textarea.id = `${EXTENSION_SETTINGS_KEY}-instructions`;
+  textarea.classList.add('text_pole', 'wide100p');
+  textarea.rows = 8;
+  textarea.style.resize = 'vertical';
+  textarea.style.fontFamily = 'monospace';
+  textarea.style.fontSize = '12px';
+  textarea.value = settings.sceneChangeInstructions || DEFAULT_SETTINGS.sceneChangeInstructions;
+
+  // Add change handler
+  textarea.addEventListener('input', function() {
+    const currentSettings = getSettings();
+    currentSettings.sceneChangeInstructions = this.value;
+    saveSettings(currentSettings);
+  });
+
+  // Create reset button
+  const resetButton = document.createElement('button');
+  resetButton.textContent = 'Reset to Default';
+  resetButton.classList.add('menu_button');
+  resetButton.style.marginTop = '8px';
+  
+  resetButton.addEventListener('click', function() {
+    textarea.value = DEFAULT_SETTINGS.sceneChangeInstructions;
+    const currentSettings = getSettings();
+    currentSettings.sceneChangeInstructions = DEFAULT_SETTINGS.sceneChangeInstructions;
+    saveSettings(currentSettings);
+  });
+
+  // Add to container
+  container.appendChild(label);
+  container.appendChild(description);
+  container.appendChild(textarea);
+  container.appendChild(resetButton);
+}
+
 function onReady() {
+  // Initialize settings
+  initializeSettings();
+  
+  // Create settings UI
+  createSettingsUI();
+  
+  // Register slash command
   registerSlashCommand();
+  
+  // Add menu button
   addExtensionMenuButton();
 }
 
