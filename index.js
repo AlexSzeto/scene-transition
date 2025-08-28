@@ -73,6 +73,31 @@ Return only the character's spoken or internal line (no extra narrative).`
   }
 }
 
+async function sceneTransitionCallback(named, unnamed) {
+  try {
+    const instruction = typeof unnamed === 'string' && unnamed.trim() 
+      ? unnamed 
+      : "Allow the character to transition to a new scene that makes sense.";
+    const style = named?.style || undefined;
+    const max = named?.max || "120";
+
+    const line = await generateSceneLine({
+      instruction,
+      style,
+      maxTokens: max
+    });
+
+    if (line) {
+      await insertAssistantMessage(line);
+      return "Scene line inserted.";
+    }
+    return "No output generated.";
+  } catch (error) {
+    console.error('[Scene Transition] Command execution error:', error);
+    return `Error: ${error.message}`;
+  }
+}
+
 function registerSlashCommand() {
   try {
     SlashCommandParser.addCommandObject(
@@ -80,30 +105,7 @@ function registerSlashCommand() {
         name: "scene",
         aliases: ["scenecut", "sc"],
         returns: "Insert the next in-character line for a scene transition (OOC prompt hidden)",
-        callback: async (named, unnamed) => {
-          try {
-            const instruction = typeof unnamed === 'string' && unnamed.trim() 
-              ? unnamed 
-              : "Allow the character to transition to a new scene that makes sense.";
-            const style = named?.style || undefined;
-            const max = named?.max || "120";
-
-            const line = await generateSceneLine({
-              instruction,
-              style,
-              maxTokens: max
-            });
-
-            if (line) {
-              await insertAssistantMessage(line);
-              return "Scene line inserted.";
-            }
-            return "No output generated.";
-          } catch (error) {
-            console.error('[Scene Transition] Command execution error:', error);
-            return `Error: ${error.message}`;
-          }
-        },
+        callback: sceneTransitionCallback,
         namedArgumentList: [
           SlashCommandNamedArgument.fromProps({
             name: "style",
@@ -138,8 +140,45 @@ function registerSlashCommand() {
   }
 }
 
+function addExtensionMenuButton() {
+  // Select the Extensions dropdown menu
+  let $extensions_menu = $('#extensionsMenu');
+  if (!$extensions_menu.length) {
+    return;
+  }
+
+  // Create button element with road icon and "Change Scene" text
+  let $button = $(`
+    <div class="list-group-item flex-container flexGap5 interactable" title="Change Scene" data-i18n="[title]Change Scene" tabindex="0">
+      <i class="fa-solid fa-road"></i>
+      <span>Change Scene</span>
+    </div>
+  `);
+
+  // Append to extensions menu
+  $button.appendTo($extensions_menu);
+
+  // Set click handler to trigger scene transition
+  $button.click(async () => {
+    try {
+      // Disable button during execution
+      $button.addClass('disabled').css('opacity', '0.5');
+      
+      // Call the scene transition function
+      await sceneTransitionCallback({}, "");
+      
+      // Re-enable button
+      $button.removeClass('disabled').css('opacity', '1');
+    } catch (error) {
+      console.error('[Scene Transition] Extension button error:', error);
+      $button.removeClass('disabled').css('opacity', '1');
+    }
+  });
+}
+
 function onReady() {
   registerSlashCommand();
+  addExtensionMenuButton();
 }
 
 // Initialize the extension when the app is ready
