@@ -1,0 +1,8 @@
+{
+  "display_name": "Scene Transition",
+  "js": "index.js",
+  "loading_order": 10,
+  "tags": ["generation", "ooc", "scene"],
+  "version": "1.0.0",
+  "author": "Alex Szeto"
+}
