@@ -3,14 +3,14 @@
   A simple extension for automatically initiating a scene transition without user input.
 */
 
-import { SlashCommand } from "../../slash-commands/SlashCommand.js";
+import { SlashCommand } from "../../../slash-commands/SlashCommand.js";
 import {
   SlashCommandArgument,
   SlashCommandNamedArgument,
   ARGUMENT_TYPE
-} from "../../slash-commands/SlashCommandArgument.js";
-import { SlashCommandParser } from "../../slash-commands/SlashCommandParser.js";
-import { getContext } from "../../st-context.js";
+} from "../../../slash-commands/SlashCommandArgument.js";
+import { SlashCommandParser } from "../../../slash-commands/SlashCommandParser.js";
+import { getContext } from "../../../st-context.js";
 
 // Extension settings
 const EXTENSION_NAME = 'Scene Transition';
@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS = {
 };
 
 // Debug settings
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 
 function getSettings() {
   const ctx = getContext();
