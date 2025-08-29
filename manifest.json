@@ -4,5 +4,6 @@
   "loading_order": 10,
   "tags": ["generation", "ooc", "scene"],
   "version": "1.0.0",
+  "homePage": "https://github.com/AlexSzeto/scene-transition",
   "author": "Alex Szeto"
 }
